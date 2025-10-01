@@ -209,7 +209,10 @@ get '/' do
       snapshots: snapshots,
       has_portfolio: !portfolio.empty?,
       all_accounts: accounts,
-      selected_account: nil
+      selected_account: nil,
+      portfolio: [],
+      total_value: 0,
+      total_change: 0
     }
   else
     # Show individual account stocks
