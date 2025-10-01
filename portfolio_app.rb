@@ -207,7 +207,8 @@ get '/' do
     erb :history_view, locals: {
       snapshots: snapshots,
       has_portfolio: !portfolio.empty?,
-      all_accounts: accounts
+      all_accounts: accounts,
+      selected_account: nil
     }
   else
     # Show individual account stocks
