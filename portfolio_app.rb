@@ -199,7 +199,10 @@ get '/' do
       grand_total_change: grand_total_change,
       has_portfolio: !portfolio.empty?,
       all_accounts: accounts,
-      selected_account: nil
+      selected_account: nil,
+      portfolio: [],
+      total_value: grand_total_value,
+      total_change: grand_total_change
     }
   elsif view == 'history'
     # Show historical chart
