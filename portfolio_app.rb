@@ -217,7 +217,7 @@ get '/' do
       total_value: 0,
       total_change: 0
     }
-  else
+  elsif view == 'stocks' && selected_account
     # Show individual account stocks
     account_stocks = portfolio.select { |s| s['account'] == selected_account }
     
@@ -261,6 +261,9 @@ get '/' do
       all_accounts: accounts,
       selected_account: selected_account
     }
+  else
+    # Default to accounts view if no valid view specified
+    redirect '/?view=accounts'
   end
 end
 
