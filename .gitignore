@@ -1,0 +1,9 @@
+portfolio_data.json
+*.gem
+*.rbc
+.bundle
+.config
+vendor/
+.DS_Store
+portfolio_data.json
+snapshots_data.json
