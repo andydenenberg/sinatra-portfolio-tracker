@@ -4,12 +4,30 @@ require 'csv'
 require 'net/http'
 require 'uri'
 require 'rufus-scheduler'
+require 'sequel'
 
 set :port, ENV['PORT']
 set :bind, '0.0.0.0'
 
-PORTFOLIO_FILE = 'portfolio_data.json'
-SNAPSHOTS_FILE = 'snapshots_data.json'
+# Initialize database
+DB = Sequel.connect(ENV['DATABASE_URL'] || 'postgres://localhost/portfolio_dev')
+
+# Create tables if they don't exist
+DB.create_table?(:portfolios) do
+  primary_key :id
+  String :account
+  String :symbol
+  Float :quantity
+  DateTime :created_at
+  DateTime :updated_at
+end
+
+DB.create_table?(:snapshots) do
+  primary_key :id
+  Date :date
+  String :data, text: true
+  DateTime :created_at
+end
 
 scheduler = Rufus::Scheduler.new
 
@@ -62,25 +80,52 @@ class StockPriceFetcher
 end
 
 def load_portfolio
-  return [] unless File.exist?(PORTFOLIO_FILE)
-  JSON.parse(File.read(PORTFOLIO_FILE))
-rescue
-  []
+  DB[:portfolios].all.map do |row|
+    {
+      'account' => row[:account],
+      'symbol' => row[:symbol],
+      'quantity' => row[:quantity]
+    }
+  end
 end
 
 def save_portfolio(portfolio)
-  File.write(PORTFOLIO_FILE, JSON.pretty_generate(portfolio))
+  DB.transaction do
+    DB[:portfolios].delete
+    portfolio.each do |stock|
+      DB[:portfolios].insert(
+        account: stock['account'],
+        symbol: stock['symbol'],
+        quantity: stock['quantity'],
+        created_at: Time.now,
+        updated_at: Time.now
+      )
+    end
+  end
 end
 
 def load_snapshots
-  return [] unless File.exist?(SNAPSHOTS_FILE)
-  JSON.parse(File.read(SNAPSHOTS_FILE))
+  DB[:snapshots].order(:date).all.map do |row|
+    {
+      'date' => row[:date].to_s,
+      'accounts' => JSON.parse(row[:data])
+    }
+  end
 rescue
   []
 end
 
 def save_snapshots(snapshots)
-  File.write(SNAPSHOTS_FILE, JSON.pretty_generate(snapshots))
+  DB.transaction do
+    DB[:snapshots].delete
+    snapshots.each do |snapshot|
+      DB[:snapshots].insert(
+        date: snapshot['date'],
+        data: snapshot['accounts'].to_json,
+        created_at: Time.now
+      )
+    end
+  end
 end
 
 def get_accounts(portfolio)
@@ -403,16 +448,7 @@ __END__
         snapshots.forEach(s => {
           Object.keys(s.accounts).forEach(acc => allAccounts.add(acc));
         });
-        const colors = [
-          'rgb(102, 126, 234)',
-          'rgb(118, 75, 162)',
-          'rgb(237, 100, 166)',
-          'rgb(255, 154, 0)',
-          'rgb(46, 213, 115)',
-          'rgb(0, 184, 217)',
-          'rgb(255, 71, 87)',
-          'rgb(253, 203, 110)'
-        ];
+        const colors = ['rgb(102, 126, 234)','rgb(118, 75, 162)','rgb(237, 100, 166)','rgb(255, 154, 0)','rgb(46, 213, 115)','rgb(0, 184, 217)','rgb(255, 71, 87)','rgb(253, 203, 110)'];
         const datasets = Array.from(allAccounts).map((account, index) => {
           return {
             label: account,
@@ -429,42 +465,20 @@ __END__
         const ctx = document.getElementById('portfolioChart').getContext('2d');
         new Chart(ctx, {
           type: 'line',
-          data: {
-            labels: dates,
-            datasets: datasets
-          },
+          data: { labels: dates, datasets: datasets },
           options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-              legend: {
-                position: 'top',
-                labels: {
-                  font: {
-                    size: 14,
-                    weight: '600'
-                  },
-                  padding: 20
-                }
-              },
-              title: {
-                display: true,
-                text: 'Account Values Over Time',
-                font: {
-                  size: 18,
-                  weight: '700'
-                },
-                padding: 20
-              },
+              legend: { position: 'top', labels: { font: { size: 14, weight: '600' }, padding: 20 } },
+              title: { display: true, text: 'Account Values Over Time', font: { size: 18, weight: '700' }, padding: 20 },
               tooltip: {
                 mode: 'index',
                 intersect: false,
                 callbacks: {
                   label: function(context) {
                     let label = context.dataset.label || '';
-                    if (label) {
-                      label += ': ';
-                    }
+                    if (label) { label += ': '; }
                     if (context.parsed.y !== null) {
                       label += '$' + context.parsed.y.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
                     }
@@ -476,34 +490,12 @@ __END__
             scales: {
               y: {
                 beginAtZero: false,
-                ticks: {
-                  callback: function(value) {
-                    return '$' + value.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-                  },
-                  font: {
-                    size: 12
-                  }
-                },
-                grid: {
-                  color: 'rgba(0, 0, 0, 0.05)'
-                }
+                ticks: { callback: function(value) { return '$' + value.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }, font: { size: 12 } },
+                grid: { color: 'rgba(0, 0, 0, 0.05)' }
               },
-              x: {
-                ticks: {
-                  font: {
-                    size: 12
-                  }
-                },
-                grid: {
-                  display: false
-                }
-              }
+              x: { ticks: { font: { size: 12 } }, grid: { display: false } }
             },
-            interaction: {
-              mode: 'nearest',
-              axis: 'x',
-              intersect: false
-            }
+            interaction: { mode: 'nearest', axis: 'x', intersect: false }
           }
         });
       </script>

@@ -1128,4 +1128,96 @@ __END__
       color: #666;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom
+      margin-bottom: 5px;
+    }
+    
+    .total-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    
+    .error-row {
+      color: #dc3545;
+      font-style: italic;
+    }
+    
+    .right-align {
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Stock Portfolio Tracker</h1>
+    <h2><%= selected_account %></h2>
+    
+    <div class="upload-section">
+      <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".csv" required>
+        <button type="submit">Upload Portfolio</button>
+        <% if has_portfolio %>
+          <form action="/clear" method="post" style="display: inline;">
+            <button type="submit" class="clear-btn">Clear Portfolio</button>
+          </form>
+        <% end %>
+      </form>
+      <p class="info">Upload a CSV file with columns: account, symbol, quantity</p>
+    </div>
+    
+    <div class="view-selector">
+      <label>View:</label>
+      <a href="/?view=accounts">Accounts Summary</a>
+      <a href="/?view=history">Historical Chart</a>
+      <a href="/?view=stocks&account=<%= URI.encode_www_form_component(selected_account) %>" class="active">
+        <%= selected_account %> Stocks
+      </a>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th class="right-align">Quantity</th>
+          <th class="right-align">Current Price</th>
+          <th class="right-align">Price Change</th>
+          <th class="right-align">Stock Value</th>
+          <th class="right-align">Stock Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% portfolio.each do |stock| %>
+          <tr>
+            <td class="symbol"><%= stock['symbol'] %></td>
+            <% if stock['error'] %>
+              <td colspan="5" class="error-row">Error fetching data</td>
+            <% else %>
+              <td class="right-align"><%= stock['quantity'] %></td>
+              <td class="right-align">$<%= sprintf('%.2f', stock['current_price']) %></td>
+              <td class="right-align <%= stock['price_change'] >= 0 ? 'positive' : 'negative' %>">
+                <%= stock['price_change'] >= 0 ? '+' : '' %>$<%= sprintf('%.2f', stock['price_change']) %>
+              </td>
+              <td class="right-align">$<%= sprintf('%.2f', stock['stock_value']) %></td>
+              <td class="right-align <%= stock['stock_price_change'] >= 0 ? 'positive' : 'negative' %>">
+                <%= stock['stock_price_change'] >= 0 ? '+' : '' %>$<%= sprintf('%.2f', stock['stock_price_change']) %>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    
+    <div class="totals">
+      <div class="total-item">
+        <div class="total-label">Account Total Value</div>
+        <div class="total-value">$<%= sprintf('%.2f', total_value) %></div>
+      </div>
+      <div class="total-item">
+        <div class="total-label">Account Total Change</div>
+        <div class="total-value <%= total_change >= 0 ? 'positive' : 'negative' %>">
+          <%= total_change >= 0 ? '+' : '' %>$<%= sprintf('%.2f', total_change) %>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
